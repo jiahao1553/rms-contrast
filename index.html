@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>RMS Contrast</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <style>
+        .card-img-cover {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            object-fit: cover;
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <span class="navbar-brand mb-0 h1">RMS Contrast</span>
+        <span id="status" class="badge badge-info ml-md-auto">
+            OpenCV.js is loading...
+        </span>
+    </nav>
+    <div class="container-fluid">
+        <div class="custom-file mt-2">
+            <input id="fileInput" type="file" class="custom-file-input" multiple disabled>
+            <label class="custom-file-label" for="inputGroupFile04">
+              <span class="d-inline-block text-truncate w-75">
+              <span class="d-inline-block text-truncate w-75">Choose image files</span>
+            </span>
+            </label>
+          </div>
+        <div id="result-grid" class="row"></div>
+    </div>
+    <div id="real-size-grid" class="d-none"></div>
+
+    <script type="text/javascript">
+        let inputElement = document.getElementById('fileInput');
+        let resultGrid = document.getElementById('result-grid');
+        let realSizeGrid = document.getElementById('real-size-grid');
+
+        inputElement.addEventListener('change', (e) => {
+            resultGrid.innerHTML = '';
+            realSizeGrid.innerHTML = '';
+            for (let i = 0; i < e.target.files.length; i++) {
+                generateCard(resultGrid, i, e.target.files[i]);
+            }
+        }, false);
+
+        function generateCard(parentElement, index, file, hiddenParentElement) {
+            let src = URL.createObjectURL(file);
+            let name = file.name;
+            let template = `
+                <div class="card">
+                    <img id="imageThumbnail` + index + `" alt="` + name + `" src="` + src + ` " class="card-img-top card-image-cover"/>
+                    <div class="card-footer"><b>` + name + `</b><p>RMS Constrast: <span id="rms` + index + `">Loading...</span><p></div>
+                </div>`;
+            let div = document.createElement('div');
+            div.classList.add('col-sm-6', 'col-md-3', 'col-lg-2', 'p-2');
+            div.innerHTML = template;
+            parentElement.appendChild(div);
+            let hiddenImg = document.createElement('img');
+            hiddenImg.id = 'image' + index;
+            hiddenImg.src = src;
+            realSizeGrid.appendChild(hiddenImg);
+            calculate_rms_constrast('image' + index, 'imageThumbnail' + index, 'rms' + index);
+        }
+
+        function calculate_rms_constrast(imageId, imageThumbnailId, placementId) {
+            let imgElement = document.getElementById(imageId);
+            let imgThumbnailElement = document.getElementById(imageThumbnailId);
+            imgElement.onload = function () {
+                let mat = cv.imread(imgElement);
+                imgThumbnailElement.title = 'image width: ' + mat.cols + '\n' +
+                'image height: ' + mat.rows + '\n' +
+                'image size: ' + mat.size().width + '*' + mat.size().height + '\n' +
+                'image depth: ' + mat.depth() + '\n' +
+                'image channels ' + mat.channels() + '\n' +
+                'image type: ' + mat.type() + '\n';
+                // cv.imshow('canvasOutput', mat);
+
+                let rgba = new cv.MatVector();
+                cv.split(mat, rgba);
+                let mean_mat = new cv.Mat();
+                let std_mat = new cv.Mat();
+                cv.meanStdDev(rgba.get(0), mean_mat, std_mat);
+                let mean = mean_mat.data64F[0] / 256;
+                let sq_total = 0;
+                for (let i = 0; i < mat.rows; i++) {
+                    for (let j = 0; j < mat.cols; j++) {
+                        sq_total += Math.pow((mat.ucharPtr(i, j)[0] / 256) - mean, 2);
+                    }
+                }
+                let rms_constrast = Math.sqrt(sq_total / (mat.rows * mat.cols));
+                mat.delete();
+                rgba.delete();
+                mean_mat.delete();
+                std_mat.delete();
+
+                let placementElement = document.getElementById(placementId);
+                placementElement.innerText = rms_constrast;
+            }
+        };
+
+        function onOpenCvReady() {
+            document.getElementById('status').innerHTML = 'OpenCV.js ✓';
+            bsCustomFileInput.init();
+            document.getElementById('fileInput').disabled = false;
+        }
+    </script>
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+        integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js"
+        integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous">
+    </script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"
+        integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bs-custom-file-input/dist/bs-custom-file-input.min.js"
+        type="text/javascript"></script>
+    <script async src="https://docs.opencv.org/4.2.0/opencv.js" onload="onOpenCvReady();" type="text/javascript">
+    </script>
+</body>
+
+</html>
